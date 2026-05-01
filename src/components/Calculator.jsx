@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useHistory } from '../hooks/useHistory';
+import { useHistory } from '../hooks/useHistory.jsx';
 
-// ---------- Utility functions (unchanged from original) ----------
+// ---------- Utilities ----------
 function gcd(a, b) {
   return b === 0 ? a : gcd(b, a % b);
 }
@@ -31,15 +31,6 @@ function getAspectRatio(w, h) {
     if (Math.abs(ratio - r.value) < tolerance) return r.label;
   }
   return simplifiedRatio(w, h);
-}
-
-function getAspectColor(ratio) {
-  if (ratio.includes('16:9')) return '#2563EB';
-  if (ratio.includes('20:9')) return '#7C3AED';
-  if (ratio.includes('19.5')) return '#9333EA';
-  if (ratio.includes('21:9')) return '#DC2626';
-  if (ratio.includes('4:3')) return '#059669';
-  return '#6B46C1';
 }
 
 const PRESETS = {
@@ -95,44 +86,28 @@ const PRESETS = {
   ],
 };
 
-// ---------- Component ----------
 export default function Calculator({ onCalculate, initialWidth = 1920, initialHeight = 1080 }) {
   const { addEntry } = useHistory();
 
-  // Main resolution inputs
   const [width, setWidth] = useState(initialWidth);
   const [height, setHeight] = useState(initialHeight);
   const [diagonal, setDiagonal] = useState('');
   const [dpi, setDpi] = useState('');
-
-  // Calculated displays
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [densityDisplay, setDensityDisplay] = useState('--');
   const [results, setResults] = useState([]);
-
-  // Custom percentage
   const [customPercent, setCustomPercent] = useState(30);
   const [percentResult, setPercentResult] = useState(null);
-
-  // Reverse calculator
   const [reverseWidth, setReverseWidth] = useState('');
   const [reverseHeight, setReverseHeight] = useState('');
   const [reverseResult, setReverseResult] = useState(null);
-
-  // Dropdown open states
   const [openDropdowns, setOpenDropdowns] = useState(new Set());
+  const [customW, setCustomW] = useState('');
+  const [customH, setCustomH] = useState('');
 
-  // Update aspect ratio & density whenever relevant inputs change
   useEffect(() => {
-    const w = Number(width);
-    const h = Number(height);
-    if (!w || !h) {
-      setAspectRatio('--');
-    } else {
-      const ratio = getAspectRatio(w, h);
-      setAspectRatio(ratio);
-      document.getElementById('aspectBadge').style.background = getAspectColor(ratio);
-    }
+    if (!width || !height) return setAspectRatio('--');
+    setAspectRatio(getAspectRatio(width, height));
   }, [width, height]);
 
   useEffect(() => {
@@ -140,68 +115,38 @@ export default function Calculator({ onCalculate, initialWidth = 1920, initialHe
     const h = Number(height);
     const diag = parseFloat(diagonal);
     const dpiVal = parseFloat(dpi);
-
     if (diag && w && h) {
-      const diagPixels = Math.sqrt(w * w + h * h);
-      const ppi = Math.round(diagPixels / diag);
-      setDensityDisplay(`${ppi} PPI`);
+      const ppi = Math.round(Math.sqrt(w * w + h * h) / diag);
+      setDensityDisplay(ppi + ' PPI');
       if (!dpiVal) setDpi(ppi.toString());
     } else if (dpiVal && w && h) {
-      const scaleFactor = w / 1080;
-      const scaledDpi = Math.round(dpiVal * scaleFactor);
-      setDensityDisplay(`${scaledDpi} DPI`);
+      setDensityDisplay(Math.round(dpiVal * w / 1080) + ' DPI');
     } else {
       setDensityDisplay('--');
     }
   }, [width, height, diagonal, dpi]);
 
-  // Toggle dropdown
   const toggleDropdown = (id) => {
     setOpenDropdowns(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  // Load preset from any select
   const loadPreset = (e) => {
-    const val = e.target.value;
-    if (!val) return;
-    const [w, h] = val.split(',').map(Number);
+    if (!e.target.value) return;
+    const [w, h] = e.target.value.split(',').map(Number);
     setWidth(w);
     setHeight(h);
   };
 
-  // Custom device
-  const loadCustomDevice = () => {
-    const w = parseInt(document.getElementById('customWidth').value);
-    const h = parseInt(document.getElementById('customHeight').value);
-    if (w && h) {
-      setWidth(w);
-      setHeight(h);
-    } else {
-      alert('Enter valid width and height');
-    }
-  };
-
-  // Main calculate
   const calculate = () => {
     const w = Number(width);
     const h = Number(height);
-    if (!w || !h) {
-      alert('Please enter valid width and height');
-      return;
-    }
-
-// addToHistory({ width: w, height: h });
-
-// With:
-addEntry({ width: w, height: h });
-
+    if (!w || !h) return alert('Enter valid width and height');
+    addEntry({ width: w, height: h });
     if (onCalculate) onCalculate(w, h);
-
     const aspect = w / h;
     const percents = [
       { name: '75% Smaller', percent: -75 },
@@ -213,96 +158,44 @@ addEntry({ width: w, height: h });
       { name: '100% Larger', percent: 100 },
       { name: '200% Larger', percent: 200 },
     ];
-
-    const calcs = percents.map(({ name, percent }) => {
+    setResults(percents.map(({ name, percent }) => {
       const nw = Math.round(w * (1 + percent / 100));
       const nh = Math.round(nw / aspect);
-      const megapixels = ((nw * nh) / 1_000_000).toFixed(2);
-      let dpiText = '';
-      if (dpi) {
-        const scaled = Math.round(Number(dpi) * (1 + percent / 100));
-        dpiText = `<br>${scaled} DPI`;
-      }
       return {
         name,
         width: nw,
         height: nh,
-        megapixels,
+        megapixels: ((nw * nh) / 1000000).toFixed(2),
         aspectRatio: getAspectRatio(nw, nh),
-        dpiText,
         percent,
       };
-    });
-
-    setResults(calcs);
+    }));
   };
 
-  // Custom percentage add/subtract
   const applyPercentage = (add) => {
-    const w = Number(width);
-    const h = Number(height);
-    const pct = Number(customPercent);
-
-    if (!w || !h || isNaN(pct)) {
-      alert('Please enter valid values');
-      return;
-    }
-
-    const multiplier = add ? 1 + pct / 100 : 1 - pct / 100;
-    const nw = Math.round(w * multiplier);
-    const nh = Math.round(h * multiplier);
-    let dpiText = '';
-    if (dpi) {
-      const scaledDpi = Math.round(Number(dpi) * multiplier);
-      dpiText = `<br>Scaled DPI: ${scaledDpi}`;
-    }
-
-    setPercentResult({
-      type: 'info-box',
-      html: `<strong>${add ? 'Added' : 'Subtracted'} ${pct}%</strong><br>
-             New Resolution: ${nw} × ${nh}<br>
-             Aspect Ratio: ${getAspectRatio(nw, nh)}${dpiText}`,
-    });
+    const w = Number(width), h = Number(height), pct = Number(customPercent);
+    if (!w || !h || isNaN(pct)) return alert('Enter valid values');
+    const m = add ? 1 + pct / 100 : 1 - pct / 100;
+    const nw = Math.round(w * m), nh = Math.round(h * m);
+    setPercentResult(`<strong>${add ? 'Added' : 'Subtracted'} ${pct}%</strong><br>New Resolution: ${nw} × ${nh}<br>Aspect Ratio: ${getAspectRatio(nw, nh)}`);
   };
 
-  // Reverse calculate
   const reverseCalculate = () => {
-    const origW = Number(width);
-    const origH = Number(height);
-    const newW = parseInt(reverseWidth);
-    const newH = parseInt(reverseHeight);
-
-    if (!origW || !origH || !newW || !newH) {
-      alert('Enter valid values in all fields');
-      return;
-    }
-
-    const widthPercent = ((newW - origW) / origW * 100).toFixed(2);
-    const heightPercent = ((newH - origH) / origH * 100).toFixed(2);
-    const diff = Math.abs(parseFloat(widthPercent) - parseFloat(heightPercent));
-    const isProportional = diff < 0.1;
-
+    const ow = Number(width), oh = Number(height);
+    const nw = parseInt(reverseWidth), nh = parseInt(reverseHeight);
+    if (!ow || !oh || !nw || !nh) return alert('Enter valid values in all fields');
+    const wp = ((nw - ow) / ow * 100).toFixed(2);
+    const hp = ((nh - oh) / oh * 100).toFixed(2);
+    const diff = Math.abs(parseFloat(wp) - parseFloat(hp));
+    const ok = diff < 0.1;
     setReverseResult({
-      type: isProportional ? 'info-box' : 'warning-box',
-      html: `<strong>Percentage Change:</strong><br>
-             Width: ${widthPercent > 0 ? '+' : ''}${widthPercent}%<br>
-             Height: ${heightPercent > 0 ? '+' : ''}${heightPercent}%<br>
-             ${isProportional
-                ? '<br>✓ Proportional scaling maintained!'
-                : '<br>⚠ Warning: Aspect ratio changed!'}`,
+      className: ok ? 'info-box' : 'warning-box',
+      html: `<strong>Percentage Change:</strong><br>Width: ${wp > 0 ? '+' : ''}${wp}%<br>Height: ${hp > 0 ? '+' : ''}${hp}%<br>${ok ? '<br>✓ Proportional!' : '<br>⚠ Aspect ratio changed!'}`
     });
   };
-
-  // Clear custom results when inputs change
-  useEffect(() => {
-    setPercentResult(null);
-    setReverseResult(null);
-    setResults([]);
-  }, [width, height, diagonal, dpi]);
 
   return (
     <div>
-      {/* Main Input Card */}
       <div className="card">
         <h2 style={{ color: 'var(--primary-purple)' }}>Current Resolution</h2>
         <div className="input-row">
@@ -310,10 +203,10 @@ addEntry({ width: w, height: h });
           <input type="number" value={width} onChange={e => setWidth(e.target.value)} />
           <label>Height:</label>
           <input type="number" value={height} onChange={e => setHeight(e.target.value)} />
-          <div id="aspectBadge" className="aspect-display">{aspectRatio}</div>
+          <div className="aspect-display">{aspectRatio}</div>
         </div>
         <div className="input-row">
-          <label>Screen Diagonal (inches):</label>
+          <label>Diagonal (in):</label>
           <input type="number" value={diagonal} onChange={e => setDiagonal(e.target.value)} placeholder="Optional" step="0.1" />
           <label>DPI/PPI:</label>
           <input type="number" value={dpi} onChange={e => setDpi(e.target.value)} placeholder="Optional" step="1" />
@@ -321,7 +214,6 @@ addEntry({ width: w, height: h });
         </div>
         <button onClick={calculate}>Calculate All Resolutions</button>
 
-        {/* Presets Dropdown */}
         <div className="dropdown-section">
           <div className="dropdown-header" onClick={() => toggleDropdown('presets')}>
             <span style={{ color: 'var(--light-purple)' }}>📐 Load Resolution Preset</span>
@@ -329,96 +221,38 @@ addEntry({ width: w, height: h });
           </div>
           {openDropdowns.has('presets') && (
             <div className="dropdown-content active">
-              {/* Standard */}
-              <div className="device-category">
-                <h4>Standard Resolutions</h4>
-                <select onChange={loadPreset}>
-                  <option value="">-- Select Resolution --</option>
-                  {PRESETS.standard.map(p => (
-                    <option key={p.label} value={`${p.w},${p.h}`}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Phones */}
-              <div className="device-category">
-                <h4>📱 Phones</h4>
-                <select onChange={loadPreset}>
-                  <option value="">-- Select Phone --</option>
-                  {PRESETS.phones.map(p => (
-                    <option key={p.label} value={`${p.w},${p.h}`}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Tablets */}
-              <div className="device-category">
-                <h4>📱 Tablets</h4>
-                <select onChange={loadPreset}>
-                  <option value="">-- Select Tablet --</option>
-                  {PRESETS.tablets.map(p => (
-                    <option key={p.label} value={`${p.w},${p.h}`}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Laptops */}
-              <div className="device-category">
-                <h4>💻 Laptops</h4>
-                <select onChange={loadPreset}>
-                  <option value="">-- Select Laptop --</option>
-                  {PRESETS.laptops.map(p => (
-                    <option key={p.label} value={`${p.w},${p.h}`}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Monitors */}
-              <div className="device-category">
-                <h4>🖥️ Monitors & Displays</h4>
-                <select onChange={loadPreset}>
-                  <option value="">-- Select Monitor --</option>
-                  {PRESETS.monitors.map(p => (
-                    <option key={p.label} value={`${p.w},${p.h}`}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Custom device */}
+              {Object.entries(PRESETS).map(([cat, items]) => (
+                <div className="device-category" key={cat}>
+                  <h4>{cat === 'standard' ? 'Standard' : cat === 'phones' ? '📱 Phones' : cat === 'tablets' ? '📱 Tablets' : cat === 'laptops' ? '💻 Laptops' : '🖥️ Monitors'}</h4>
+                  <select onChange={loadPreset}>
+                    <option value="">-- Select --</option>
+                    {items.map(p => <option key={p.label} value={`${p.w},${p.h}`}>{p.label}</option>)}
+                  </select>
+                </div>
+              ))}
               <div className="custom-device">
                 <h4>✏️ Custom Device</h4>
-                <div className="device-category">
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Width:</label>
-                  <input id="customWidth" type="number" placeholder="Enter width" style={{ width: '100%', marginBottom: '1rem' }} />
-                </div>
-                <div className="device-category">
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>Height:</label>
-                  <input id="customHeight" type="number" placeholder="Enter height" style={{ width: '100%', marginBottom: '1rem' }} />
-                </div>
-                <button className="secondary" onClick={loadCustomDevice}>Load Custom Resolution</button>
+                <label>Width:</label>
+                <input type="number" value={customW} onChange={e => setCustomW(e.target.value)} placeholder="Width" style={{ width: '100%', marginBottom: '0.5rem' }} />
+                <label>Height:</label>
+                <input type="number" value={customH} onChange={e => setCustomH(e.target.value)} placeholder="Height" style={{ width: '100%', marginBottom: '0.5rem' }} />
+                <button className="secondary" onClick={() => { if (customW && customH) { setWidth(Number(customW)); setHeight(Number(customH)); } }}>Load Custom</button>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Custom Percentage Card */}
       <div className="card">
         <h2 style={{ color: 'var(--accent-red)' }}>Custom Percentage Calculator</h2>
-        <div className="device-category">
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Percentage:</label>
-          <input
-            type="number"
-            value={customPercent}
-            onChange={e => setCustomPercent(e.target.value)}
-            step="0.1"
-            style={{ width: '100%', marginBottom: '1rem' }}
-          />
-        </div>
+        <label>Percentage:</label>
+        <input type="number" value={customPercent} onChange={e => setCustomPercent(e.target.value)} step="0.1" style={{ width: '100%', marginBottom: '1rem' }} />
         <div className="button-group">
           <button className="secondary" onClick={() => applyPercentage(true)}>Add Percentage</button>
           <button className="danger" onClick={() => applyPercentage(false)}>Subtract Percentage</button>
         </div>
-        {percentResult && (
-          <div className={percentResult.type} dangerouslySetInnerHTML={{ __html: percentResult.html }} />
-        )}
+        {percentResult && <div className="info-box" dangerouslySetInnerHTML={{ __html: percentResult }} />}
 
-        {/* Reverse Calculator Dropdown */}
         <div className="dropdown-section">
           <div className="dropdown-header" onClick={() => toggleDropdown('reverse')}>
             <span style={{ color: 'var(--accent-red)' }}>🔄 Find Percentage Difference</span>
@@ -426,39 +260,29 @@ addEntry({ width: w, height: h });
           </div>
           {openDropdowns.has('reverse') && (
             <div className="dropdown-content active">
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Enter new resolution to calculate the percentage change:</p>
-              <div className="device-category">
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>New Width:</label>
-                <input type="number" value={reverseWidth} onChange={e => setReverseWidth(e.target.value)} style={{ width: '100%', marginBottom: '1rem' }} />
-              </div>
-              <div className="device-category">
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>New Height:</label>
-                <input type="number" value={reverseHeight} onChange={e => setReverseHeight(e.target.value)} style={{ width: '100%', marginBottom: '1rem' }} />
-              </div>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Enter new resolution:</p>
+              <label>New Width:</label>
+              <input type="number" value={reverseWidth} onChange={e => setReverseWidth(e.target.value)} style={{ width: '100%', marginBottom: '1rem' }} />
+              <label>New Height:</label>
+              <input type="number" value={reverseHeight} onChange={e => setReverseHeight(e.target.value)} style={{ width: '100%', marginBottom: '1rem' }} />
               <button onClick={reverseCalculate}>Calculate Difference</button>
-              {reverseResult && (
-                <div className={reverseResult.type} dangerouslySetInnerHTML={{ __html: reverseResult.html }} />
-              )}
+              {reverseResult && <div className={reverseResult.className} style={{ marginTop: '1rem' }} dangerouslySetInnerHTML={{ __html: reverseResult.html }} />}
             </div>
           )}
         </div>
       </div>
 
-      {/* Results Card */}
       {results.length > 0 && (
         <div className="card">
           <h2 style={{ color: 'var(--primary-purple)' }}>Calculated Resolutions</h2>
           <div className="result-grid">
-            {results.map((calc, idx) => (
-              <div key={idx} className="result-card">
-                <div className="result-title">{calc.name}</div>
-                <div className="result-res" style={{ fontSize: '1.5em', fontWeight: 700 }}>
-                  {calc.width} × {calc.height}
-                </div>
+            {results.map((r, i) => (
+              <div key={i} className="result-card">
+                <div className="result-title">{r.name}</div>
+                <div className="result-res">{r.width} × {r.height}</div>
                 <div className="result-details">
-                  {calc.percent !== 0 ? (calc.percent > 0 ? '+' : '') + calc.percent + '%' : 'Original'}<br />
-                  {calc.megapixels} MP | {calc.aspectRatio}
-                  {calc.dpiText && <span dangerouslySetInnerHTML={{ __html: calc.dpiText }} />}
+                  {r.percent !== 0 ? (r.percent > 0 ? '+' : '') + r.percent + '%' : 'Original'}<br />
+                  {r.megapixels} MP | {r.aspectRatio}
                 </div>
               </div>
             ))}

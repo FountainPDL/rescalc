@@ -1,8 +1,18 @@
-import { Routes, Route, NavLink } from 'react-router-dom';
-import CalculatorPage from './pages/CalculatorPage';
+import React, { useState } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import Calculator from './components/Calculator';
 import HistoryPage from './pages/HistoryPage';
+import { HistoryProvider } from './hooks/useHistory.jsx';
 
-export default function App() {
+function AppContent() {
+  const [activeTab, setActiveTab] = useState('calculator');
+  const navigate = useNavigate();
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    navigate(tab === 'calculator' ? '/' : '/history');
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -11,20 +21,39 @@ export default function App() {
       </header>
 
       <nav className="nav">
-        <NavLink to="/" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Calculator</NavLink>
-        <NavLink to="/history" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>History</NavLink>
+        <button
+          className={`nav-link ${activeTab === 'calculator' ? 'active' : ''}`}
+          onClick={() => handleTabChange('calculator')}
+        >
+          Calculator
+        </button>
+        <button
+          className={`nav-link ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => handleTabChange('history')}
+        >
+          History
+        </button>
       </nav>
 
       <main className="container">
         <Routes>
-          <Route path="/" element={<CalculatorPage />} />
+          <Route path="/" element={<Calculator />} />
           <Route path="/history" element={<HistoryPage />} />
         </Routes>
       </main>
 
+      <div className="big-emoji">🙂</div>
       <footer className="footer">
         <p>FountainPDL's Resolution Calculator © 2026</p>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <HistoryProvider>
+      <AppContent />
+    </HistoryProvider>
   );
 }

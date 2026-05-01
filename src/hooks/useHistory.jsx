@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+const HistoryContext = createContext();
 
 const STORAGE_KEY = 'rescalc_history';
-const MAX_ITEMS = 100;
+const MAX_ITEMS = 50;
 
-function useHistory() {
+export function HistoryProvider({ children }) {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -17,8 +18,7 @@ function useHistory() {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-    } catch (e) {
-      console.warn('History storage full, pruning...');
+    } catch {
       const pruned = history.slice(0, Math.floor(MAX_ITEMS / 2));
       setHistory(pruned);
     }
@@ -26,7 +26,7 @@ function useHistory() {
 
   const addEntry = useCallback(({ width, height }) => {
     const entry = {
-      id: uuidv4(),
+      id: Date.now().toString(),
       width,
       height,
       timestamp: Date.now(),
@@ -43,8 +43,15 @@ function useHistory() {
     setHistory(prev => prev.filter(item => item.id !== id));
   }, []);
 
-  return { history, addEntry, clearHistory, removeEntry };
+  return (
+    <HistoryContext.Provider value={{ history, addEntry, clearHistory, removeEntry }}>
+      {children}
+    </HistoryContext.Provider>
+  );
 }
 
-export { useHistory };
-export default useHistory;
+export function useHistory() {
+  const ctx = useContext(HistoryContext);
+  if (!ctx) throw new Error('useHistory must be used within HistoryProvider');
+  return ctx;
+}

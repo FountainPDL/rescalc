@@ -1,5 +1,31 @@
 import { useCallback } from 'react';
-import { getAspectRatio } from '../utils/resolutionUtils';
+
+function gcd(a, b) {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+function getAspectRatio(w, h) {
+  if (!w || !h) return '--';
+  const ratio = Math.max(w, h) / Math.min(w, h);
+  const knownRatios = [
+    { value: 4 / 3, label: '4:3' },
+    { value: 16 / 10, label: '16:10' },
+    { value: 16 / 9, label: '16:9' },
+    { value: 18 / 9, label: '18:9' },
+    { value: 19.5 / 9, label: '19.5:9' },
+    { value: 20 / 9, label: '20:9' },
+    { value: 21 / 9, label: '21:9' },
+  ];
+  const tolerance = 0.02;
+  for (const r of knownRatios) {
+    if (Math.abs(ratio - r.value) < tolerance) return r.label;
+  }
+  const divisor = gcd(w, h);
+  let rw = w / divisor;
+  let rh = h / divisor;
+  if (rw < rh) [rw, rh] = [rh, rw];
+  return `${rw}:${rh}`;
+}
 
 export default function ResolutionCard({
   width,
@@ -11,7 +37,7 @@ export default function ResolutionCard({
   showActions = true,
 }) {
   const ratio = getAspectRatio(width, height);
-  const megapixels = ((width * height) / 1_000_000).toFixed(2);
+  const megapixels = ((width * height) / 1000000).toFixed(2);
 
   const handleSelect = useCallback(() => {
     if (onSelect) onSelect(width, height);
@@ -23,7 +49,7 @@ export default function ResolutionCard({
         {label || `${width} × ${height}`}
       </div>
       {label && (
-        <div className="result-res" style={{ fontSize: '1.3em', fontWeight: 700 }}>
+        <div className="result-res">
           {width} × {height}
         </div>
       )}
@@ -38,13 +64,9 @@ export default function ResolutionCard({
             <button
               onClick={handleSelect}
               style={{
-                background: 'var(--primary-purple)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
+                width: 'auto',
                 padding: '0.3rem 0.6rem',
                 fontSize: '0.8rem',
-                cursor: 'pointer',
               }}
             >
               Use
@@ -52,15 +74,12 @@ export default function ResolutionCard({
           )}
           {onDelete && (
             <button
-              onClick={() => onDelete(width, height)}
+              onClick={() => onDelete()}
+              className="danger"
               style={{
-                background: 'var(--accent-red)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
+                width: 'auto',
                 padding: '0.3rem 0.6rem',
                 fontSize: '0.8rem',
-                cursor: 'pointer',
               }}
             >
               Delete
