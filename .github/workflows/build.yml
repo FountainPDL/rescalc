@@ -36,22 +36,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli
-
       - name: Add Android platform
         run: npx cap add android
 
-      - name: Sync web assets with Capacitor
+      - name: Sync Capacitor
         run: npx cap sync
 
-      - name: Generate debug APK
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
+
+      - name: List APK files
+        run: find android -name "*.apk" -type f
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: rescalc-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
