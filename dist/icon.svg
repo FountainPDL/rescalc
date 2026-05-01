@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" rx="102" fill="#1A1A1A"/>
+  <!-- Magnifying glass -->
+  <circle cx="210" cy="210" r="100" stroke="#6B46C1" stroke-width="32" fill="none"/>
+  <line x1="285" y1="285" x2="380" y2="380" stroke="#6B46C1" stroke-width="32" stroke-linecap="round"/>
+  <!-- Resolution bars inside circle -->
+  <rect x="160" y="150" width="100" height="12" rx="6" fill="#9F7AEA"/>
+  <rect x="160" y="178" width="80"  height="12" rx="6" fill="#9F7AEA"/>
+  <rect x="160" y="206" width="60"  height="12" rx="6" fill="#9F7AEA"/>
+  <rect x="160" y="234" width="40"  height="12" rx="6" fill="#9F7AEA"/>
+  <!-- Aspect ratio badge -->
+  <rect x="320" y="150" width="160" height="40" rx="20" fill="#6B46C1"/>
+  <text x="400" y="178" font-family="system-ui, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">16:9</text>
+</svg>
